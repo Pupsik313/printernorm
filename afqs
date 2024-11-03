@@ -1,0 +1,55 @@
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local Workspace = game:GetService("Workspace")
+
+local GAME_ID = 7239319209 -- Replace with your actual game ID
+
+local function teleportPlayerToPart(player, part)
+	local character = player.Character or player.CharacterAdded:Wait()
+	local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+	humanoidRootPart.CFrame = part.CFrame
+end
+
+local function serverHop()
+	local currentJobId = game.JobId
+	local success, result = pcall(function()
+		return HttpService:GetAsync("https://games.roblox.com/v1/games/" .. GAME_ID .. "/servers/Public?sortOrder=Asc&limit=100")
+	end)
+
+	if success then
+		local servers = HttpService:JSONDecode(result)
+		for _, server in servers.data do
+			if server.id ~= currentJobId and server.playing < server.maxPlayers then
+				TeleportService:TeleportToPlaceInstance(GAME_ID, server.id)
+				print("Server hopping to another server...")
+				return
+			end
+		end
+	else
+		warn("Failed to retrieve server list: " .. result)
+	end
+end
+
+local function checkAndTeleport()
+	local moneyPrinter = Workspace:FindFirstChild("money printer")
+	if moneyPrinter then
+		for _, player in Players:GetPlayers() do
+			teleportPlayerToPart(player, moneyPrinter)
+		end
+	else
+		serverHop() -- Only hop to another server if the part is not found
+	end
+end
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function()
+		checkAndTeleport()
+	end)
+end)
+
+for _, player in Players:GetPlayers() do
+	player.CharacterAdded:Connect(function()
+		checkAndTeleport()
+	end)
+end
